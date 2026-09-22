@@ -1,5 +1,6 @@
 import { createPostAction } from "@/app/actions";
-import { Button } from "@/components/ui/button";
+import { PostForm } from "@/components/post-form";
+import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,7 +20,7 @@ export default function NewPostPage() {
           <CardTitle>글 정보 입력</CardTitle>
         </CardHeader>
         <CardContent>
-          <form action={createPostAction} className="space-y-4">
+          <PostForm action={createPostAction} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="title">제목</Label>
               <Input id="title" name="title" required maxLength={100} />
@@ -39,9 +40,9 @@ export default function NewPostPage() {
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="submit">등록</Button>
+              <SubmitButton pendingText="등록 중...">등록</SubmitButton>
             </div>
-          </form>
+          </PostForm>
         </CardContent>
       </Card>
     </div>

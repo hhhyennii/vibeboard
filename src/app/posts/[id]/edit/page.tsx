@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { getPost } from "@/lib/posts";
 import { updatePostAction } from "@/app/actions";
-import { Button } from "@/components/ui/button";
+import { PostForm } from "@/components/post-form";
+import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,7 +33,7 @@ export default async function EditPostPage({
           <CardTitle>글 정보 수정</CardTitle>
         </CardHeader>
         <CardContent>
-          <form action={updateWithId} className="space-y-4">
+          <PostForm action={updateWithId} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="title">제목</Label>
               <Input
@@ -65,9 +66,9 @@ export default async function EditPostPage({
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="submit">저장</Button>
+              <SubmitButton pendingText="저장 중...">저장</SubmitButton>
             </div>
-          </form>
+          </PostForm>
         </CardContent>
       </Card>
     </div>
