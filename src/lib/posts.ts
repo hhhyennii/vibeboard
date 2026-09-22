@@ -1,5 +1,4 @@
-import { promises as fs } from "fs";
-import path from "path";
+import { supabase } from "@/lib/supabase";
 
 export type Post = {
   id: string;
@@ -10,35 +9,52 @@ export type Post = {
   views: number;
 };
 
-const DATA_FILE = path.join(process.cwd(), "data", "posts.json");
+type PostRow = {
+  id: number;
+  title: string;
+  author: string;
+  content: string;
+  created_at: string;
+  views: number;
+};
 
-async function readPosts(): Promise<Post[]> {
-  const raw = await fs.readFile(DATA_FILE, "utf-8");
-  return JSON.parse(raw) as Post[];
-}
-
-async function writePosts(posts: Post[]): Promise<void> {
-  await fs.writeFile(DATA_FILE, JSON.stringify(posts, null, 2), "utf-8");
+function mapRow(row: PostRow): Post {
+  return {
+    id: String(row.id),
+    title: row.title,
+    author: row.author,
+    content: row.content,
+    createdAt: row.created_at,
+    views: row.views,
+  };
 }
 
 export async function getPosts(query?: string): Promise<Post[]> {
-  const posts = await readPosts();
-  const sorted = [...posts].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
-  if (!query) return sorted;
-  const q = query.toLowerCase();
-  return sorted.filter(
-    (p) =>
-      p.title.toLowerCase().includes(q) ||
-      p.content.toLowerCase().includes(q) ||
-      p.author.toLowerCase().includes(q)
-  );
+  let request = supabase
+    .from("posts")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (query) {
+    const escaped = query.replace(/[%,]/g, "");
+    request = request.or(
+      `title.ilike.%${escaped}%,content.ilike.%${escaped}%,author.ilike.%${escaped}%`
+    );
+  }
+
+  const { data, error } = await request;
+  if (error) throw new Error(error.message);
+  return (data as PostRow[]).map(mapRow);
 }
 
 export async function getPost(id: string): Promise<Post | undefined> {
-  const posts = await readPosts();
-  return posts.find((p) => p.id === id);
+  const { data, error } = await supabase
+    .from("posts")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? mapRow(data as PostRow) : undefined;
 }
 
 export async function createPost(input: {
@@ -46,41 +62,43 @@ export async function createPost(input: {
   author: string;
   content: string;
 }): Promise<Post> {
-  const posts = await readPosts();
-  const newPost: Post = {
-    id: Date.now().toString(),
-    title: input.title,
-    author: input.author,
-    content: input.content,
-    createdAt: new Date().toISOString(),
-    views: 0,
-  };
-  posts.push(newPost);
-  await writePosts(posts);
-  return newPost;
+  const { data, error } = await supabase
+    .from("posts")
+    .insert(input)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return mapRow(data as PostRow);
 }
 
 export async function updatePost(
   id: string,
   input: { title: string; author: string; content: string }
 ): Promise<Post | undefined> {
-  const posts = await readPosts();
-  const idx = posts.findIndex((p) => p.id === id);
-  if (idx === -1) return undefined;
-  posts[idx] = { ...posts[idx], ...input };
-  await writePosts(posts);
-  return posts[idx];
+  const { data, error } = await supabase
+    .from("posts")
+    .update(input)
+    .eq("id", id)
+    .select()
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? mapRow(data as PostRow) : undefined;
 }
 
 export async function deletePost(id: string): Promise<void> {
-  const posts = await readPosts();
-  await writePosts(posts.filter((p) => p.id !== id));
+  const { error } = await supabase.from("posts").delete().eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 export async function incrementViews(id: string): Promise<void> {
-  const posts = await readPosts();
-  const idx = posts.findIndex((p) => p.id === id);
-  if (idx === -1) return;
-  posts[idx].views += 1;
-  await writePosts(posts);
+  const { data } = await supabase
+    .from("posts")
+    .select("views")
+    .eq("id", id)
+    .maybeSingle();
+  if (!data) return;
+  await supabase
+    .from("posts")
+    .update({ views: (data as { views: number }).views + 1 })
+    .eq("id", id);
 }
